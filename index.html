@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agora Video Call with Invitation</title>
+  <script src="https://download.agora.io/sdk/release/AgoraRTC_N.js"></script>
+  <style>
+    body {
+      background: linear-gradient(to right, #ff7e5f, #feb47b); /* Fondo degradado */
+      height: 100vh; /* Altura del fondo */
+      margin: 0; /* Elimina los márgenes por defecto */
+      font-family: Arial, sans-serif; /* Tipo de letra */
+      text-align: center;
+    }
+
+    #video-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-top: 20px;
+      margin-bottom: 20px;
+    }
+
+    #localStream, #remoteStream {
+      width: 300px;
+      height: 300px;
+      border: 1px solid black;
+      background: #000;
+      margin: 10px;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      margin: 10px;
+      cursor: pointer;
+      background-color: #ff7e5f; /* Color del botón */
+      color: white;
+      border: none;
+      border-radius: 5px;
+    }
+
+    button:hover {
+      background-color: #feb47b; /* Cambia el color al pasar el mouse */
+    }
+
+    #invite-link {
+      margin-top: 20px;
+      font-size: 14px;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>My Video Call UGB</h1>
+
+  <!-- Contenedor para los cuadros de cámara -->
+  <div id="video-container">
+    <div id="localStream"></div>
+    <div id="remoteStream"></div>
+  </div>
+
+  <!-- Botones debajo de los cuadros de cámara -->
+  <div>
+    <button id="joinCall">Join Call</button>
+    <button id="inviteCall">Send Invitation</button>
+  </div>
+
+  <!-- Enlace de invitación -->
+  <div id="invite-link"></div>
+
+  <script>
+    const APP_ID = "c15bd9d6903846389e10ab4991a65562"; // Reemplaza con tu App ID
+    const CHANNEL = "Class";
+    const TOKEN = "007eJxTYDj6q8NrWuPJ8gtuSza9KHj+0GlD22Urpt1hix+H/K7udD+jwJBsaJqUYpliZmlgbGFiZmxhmWpokJhkYmlpmGhmampmNOmbc3pDICOD/IufjIwMEAjiszI45yQWFzMwAACDDCMc"; // Reemplázalo si necesitas un token
+
+    const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+
+    let localTracks = [];
+    let remoteUsers = {};
+
+    document.getElementById("joinCall").onclick = async () => {
+      try {
+        await client.join(APP_ID, CHANNEL, TOKEN, null);
+        console.log("Joined channel successfully");
+
+        localTracks = await AgoraRTC.createMicrophoneAndCameraTracks();
+        const localPlayer = `<div id="local-player" style="width: 300px; height: 300px; background: black;"></div>`;
+        document.getElementById("localStream").innerHTML = localPlayer;
+        localTracks[1].play("local-player");
+        await client.publish(localTracks);
+        console.log("Published local tracks successfully");
+
+        client.on("user-published", async (user, mediaType) => {
+          await client.subscribe(user, mediaType);
+          if (mediaType === "video") {
+            const remotePlayer = `<div id="player-${user.uid}" style="width: 300px; height: 300px; background: black;"></div>`;
+            document.getElementById("remoteStream").innerHTML = remotePlayer;
+            user.videoTrack.play(`player-${user.uid}`);
+          }
+          if (mediaType === "audio") {
+            user.audioTrack.play();
+          }
+        });
+
+        client.on("user-unpublished", user => {
+          document.getElementById(`player-${user.uid}`).remove();
+        });
+      } catch (err) {
+        console.error("Error in join call:", err);
+      }
+      
+    };
+
+    document.getElementById("inviteCall").onclick = () => {
+      // Generar enlace de invitación
+      const inviteLink = `${window.location.origin}${window.location.pathname}?channel=${CHANNEL}&token=${TOKEN}`;
+      const inviteMessage = `Join my Agora meeting: ${inviteLink}`;
+      
+      // Mostrar el enlace en pantalla
+      const inviteLinkElement = document.getElementById("invite-link");
+      inviteLinkElement.innerHTML = `Invitation Link: <a href="${inviteLink}" target="_blank">${inviteLink}</a>`;
+
+      // Intentar compartir usando la API Share (opcional)
+      if (navigator.share) {
+        navigator.share({
+          title: "Agora Meeting Invitation",
+          text: inviteMessage,
+          url: inviteLink,
+        }).catch(err => console.error("Error sharing:", err));
+      } else {
+        // Copiar al portapapeles si no se puede compartir directamente
+        navigator.clipboard.writeText(inviteLink).then(() => {
+          alert("Link copied to clipboard!");
+        }).catch(err => console.error("Error copying link:", err));
+      }
+    };
+  </script>
+</body>
+</html>
